@@ -1,14 +1,25 @@
-// routes/auth.js
+
+
 const express = require('express');
 const dotenv = require('dotenv');
 dotenv.config();
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const authMiddleware = require('../middleware/authMiddleware'); // Middleware to verify token
+const authMiddleware = require('../middleware/authMiddleware');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs'); // Add this to verify directory existence
 const router = express.Router();
+
+// Ensure 'uploads' directory exists
+const uploadDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+  console.log('Uploads directory created');
+} else {
+  console.log('Uploads directory already exists');
+}
 
 // Setup Multer for file uploads
 const storage = multer.diskStorage({
@@ -22,53 +33,34 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-
-
 router.post('/signup', upload.single('profilePicture'), async (req, res) => {
   const { email, username, password } = req.body;
 
-  // console.log('Received signup request:', { email, username });
+  console.log('Received signup request:', { email, username, password });
+  console.log('Received file:', req.file);
 
   try {
-    // Check if the user already exists
     let user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
-    // console.log('Password hashed successfully');
-
-    // Create a new user
     user = new User({
       email,
       username,
       password: hashedPassword,
-     
       profilePicture: req.file ? `/uploads/${req.file.filename}` : null,
     });
 
-    // Save the user to the database
     await user.save();
-    // console.log('User saved to the database:', user);
-
-    // Create a JWT token
-    const token = jwt.sign(
-      { id: user.id, username: user.username },
-      process.env.ACCESS_SECRET_TOKEN, // Replace with a secure key in production
-      { expiresIn: '1h' }
-    );
-    // console.log('JWT token generated:', token);
-
-    // Send the token as a response
+    const token = jwt.sign({ id: user.id, username: user.username }, process.env.ACCESS_SECRET_TOKEN, { expiresIn: '1h' });
     res.json({ token });
   } catch (err) {
-    // console.error('Error during signup:', err.message);
+    console.error('Error during signup:', err.message);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
-
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;

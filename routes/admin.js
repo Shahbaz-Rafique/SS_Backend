@@ -2,7 +2,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/admin_auth');
 
 // Example admin route
 router.get('/dashboard', requireAuth, (req, res) => {
